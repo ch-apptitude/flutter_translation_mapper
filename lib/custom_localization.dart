@@ -37,6 +37,16 @@ class CustomLocalization {
   }
 }
 
+/// Ordered list of `.arb` file-name stems to try for [locale], most specific
+/// first (e.g. `de_CH` before `de`). Exposed for testing — the ordering is
+/// the whole point of the language+country fallback fix.
+@visibleForTesting
+List<String> localeFileCandidates(Locale locale) => <String>[
+      if (locale.countryCode != null && locale.countryCode!.isNotEmpty)
+        '${locale.languageCode}_${locale.countryCode}',
+      locale.languageCode,
+    ];
+
 class CustomLocalizationDelegate
     extends LocalizationsDelegate<CustomLocalization> {
   String filePrefix = 'app_';
@@ -50,68 +60,80 @@ class CustomLocalizationDelegate
 
   @override
   Future<CustomLocalization> load(Locale locale) async {
-    try {
-      String language = locale.languageCode;
-      developer.log(
-        'Loading localization for language: $language',
-        name: 'CustomLocalization',
-      );
+    // Prefer a full language+country file (e.g. "de_CH") when the locale has
+    // a country code, falling back to the language-only file (e.g. "de").
+    // Trying the language-only file unconditionally — as this used to do —
+    // meant a country-specific locale (like de_CH) silently lost every
+    // translation whenever no language-only file was bundled, even though a
+    // perfectly good language+country file existed right next to it.
+    final candidates = localeFileCandidates(locale);
 
-      String json = await rootBundle.loadString("lib/l10n/$filePrefix$language.arb");
-
-      Map<String, dynamic> decoded;
+    for (final candidate in candidates) {
       try {
-        decoded = jsonDecode(json);
-      } catch (e) {
         developer.log(
-          'Failed to parse JSON for locale $language',
+          'Loading localization for locale: $candidate',
+          name: 'CustomLocalization',
+        );
+
+        final json = await rootBundle.loadString("lib/l10n/$filePrefix$candidate.arb");
+
+        Map<String, dynamic> decoded;
+        try {
+          decoded = jsonDecode(json);
+        } catch (e) {
+          developer.log(
+            'Failed to parse JSON for locale $candidate',
+            name: 'CustomLocalization',
+            error: e,
+          );
+          rethrow;
+        }
+
+        // Filter out metadata entries (keys starting with @) and ensure string values
+        final entries = <String, String>{};
+        var skippedEntries = 0;
+
+        decoded.forEach((key, value) {
+          if (key.startsWith('@')) {
+            // Skip metadata entries
+            return;
+          }
+
+          if (value is String) {
+            entries[key] = value;
+          } else {
+            skippedEntries++;
+            developer.log(
+              'Skipped non-string value for key "$key" (type: ${value.runtimeType})',
+              name: 'CustomLocalization',
+            );
+          }
+        });
+
+        developer.log(
+          'Loaded ${entries.length} translations for $candidate${skippedEntries > 0 ? " ($skippedEntries entries skipped)" : ""}',
+          name: 'CustomLocalization',
+        );
+
+        return CustomLocalization(entries);
+      } catch (e, stackTrace) {
+        developer.log(
+          'Failed to load custom localization for candidate $candidate',
           name: 'CustomLocalization',
           error: e,
+          stackTrace: stackTrace,
         );
-        rethrow;
+        // Try the next candidate (if any) before giving up.
       }
-
-      // Filter out metadata entries (keys starting with @) and ensure string values
-      Map<String, String> entries = {};
-      int skippedEntries = 0;
-
-      decoded.forEach((key, value) {
-        if (key.startsWith('@')) {
-          // Skip metadata entries
-          return;
-        }
-
-        if (value is String) {
-          entries[key] = value;
-        } else {
-          skippedEntries++;
-          developer.log(
-            'Skipped non-string value for key "$key" (type: ${value.runtimeType})',
-            name: 'CustomLocalization',
-          );
-        }
-      });
-
-      developer.log(
-        'Loaded ${entries.length} translations for $language${skippedEntries > 0 ? " ($skippedEntries entries skipped)" : ""}',
-        name: 'CustomLocalization',
-      );
-
-      return CustomLocalization(entries);
-    } catch (e, stackTrace) {
-      developer.log(
-        'Failed to load custom localization for locale ${locale.languageCode}',
-        name: 'CustomLocalization',
-        error: e,
-        stackTrace: stackTrace,
-      );
-
-      // Return empty localization as fallback to prevent app crash
-      developer.log(
-        'Returning empty localization as fallback',
-        name: 'CustomLocalization',
-      );
-      return CustomLocalization({});
     }
+
+    // All candidates failed — return empty localization as fallback to
+    // prevent an app crash. Callers see "??:key" for every lookup, which is
+    // loud enough to notice in QA but won't take the app down.
+    developer.log(
+      'No localization file found for locale $locale (tried: ${candidates.join(", ")}); returning empty localization as fallback',
+      name: 'CustomLocalization',
+    );
+    return CustomLocalization({});
   }
 }
