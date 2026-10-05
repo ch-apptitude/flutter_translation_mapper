@@ -9,6 +9,7 @@ A Flutter package designed to simplify localization by providing a solution for 
 - **Custom Localization**: Supports dynamic translations with simple variable replacements.
 - **Regional Locale Resolution**: Locales with a country code (e.g. `de_CH`) load their country-specific file first and fall back to the language-only file.
 - **Fallback Support**: Prevents crashes by providing fallback translations.
+- **Missing-Key Hook**: Optional `CustomLocalization.onMissingKey` callback to report missing translations to logging, analytics or crash reporting.
 
 > **Note**: Currently, the custom localization only supports simple variables. Plurals, dates, and other advanced formatting are not yet supported.
 
@@ -155,6 +156,21 @@ Text(context.translate('greeting', params: {'name': 'John'}));
 ```
 
 If the key is not found, the package will return `??:key` as a fallback.
+
+---
+
+### 6. Reporting Missing Keys (Optional)
+
+A lookup that misses renders as `??:key` so it is visible in QA, but it is otherwise silent. To be told about every miss, set `CustomLocalization.onMissingKey` once at startup (for example in `main.dart`). It receives the missing key and is called exactly once per miss, before the fallback is returned:
+
+```dart
+CustomLocalization.onMissingKey = (key) {
+  myLogger.warning('No translation for "$key"');
+  assert(false, 'No translation for l10n key "$key"');
+};
+```
+
+Typical uses are reporting to a crash reporter (Sentry, Crashlytics), analytics, or asserting in debug builds so a missing key fails fast during development. The callback is not guarded: if it throws, the exception propagates out of `context.translate`, which is what makes the `assert` above work. Leave the hook unset (the default) to keep the previous behaviour.
 
 ---
 

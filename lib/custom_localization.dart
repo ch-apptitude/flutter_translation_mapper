@@ -9,6 +9,22 @@ class CustomLocalization {
   static final CustomLocalizationDelegate delegate =
       CustomLocalizationDelegate();
 
+  /// Called when [get] finds no entry for a key, before the `"??:key"`
+  /// fallback is returned. Null by default. Apps use it to report missing
+  /// keys (analytics, crash reporting, debug assertions):
+  ///
+  /// ```dart
+  /// CustomLocalization.onMissingKey = (key) {
+  ///   myLogger.warning('No translation for "$key"');
+  ///   assert(false, 'No translation for l10n key "$key"');
+  /// };
+  /// ```
+  ///
+  /// The callback is invoked exactly once per miss. It is not guarded: an
+  /// exception thrown from it propagates out of [get] (and therefore out of
+  /// `context.translate`), so an app can deliberately fail fast in debug.
+  static void Function(String key)? onMissingKey;
+
   CustomLocalization(this._entries);
 
   static CustomLocalization? of(BuildContext context) {
@@ -19,6 +35,7 @@ class CustomLocalization {
     String? translation = _entries[key];
 
     if (translation == null) {
+      onMissingKey?.call(key);
       return "??:$key";
     }
 
