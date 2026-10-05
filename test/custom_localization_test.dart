@@ -51,6 +51,72 @@ void main() {
     });
   });
 
+  group('CustomLocalization.onMissingKey', () {
+    late List<String> reported;
+
+    setUp(() {
+      reported = [];
+      CustomLocalization.onMissingKey = reported.add;
+    });
+
+    tearDown(() {
+      CustomLocalization.onMissingKey = null;
+    });
+
+    test('is called once with the missing key', () {
+      final localization = CustomLocalization({'greeting': 'Hello'});
+
+      localization.get('missingKey');
+
+      expect(reported, ['missingKey']);
+    });
+
+    test('is not called on a hit', () {
+      final localization = CustomLocalization({'greeting': 'Hello'});
+
+      expect(localization.get('greeting'), 'Hello');
+      expect(reported, isEmpty);
+    });
+
+    test('is not called when the key exists but a param is unused', () {
+      final localization = CustomLocalization({'greeting': 'Hello'});
+
+      expect(localization.get('greeting', params: {'name': 'Léa'}), 'Hello');
+      expect(reported, isEmpty);
+    });
+
+    test('still returns the "??:key" fallback after the hook runs', () {
+      final localization = CustomLocalization({});
+
+      expect(localization.get('missingKey'), '??:missingKey');
+      expect(reported, ['missingKey']);
+    });
+
+    test('a throwing hook propagates out of get', () {
+      CustomLocalization.onMissingKey = (key) {
+        throw StateError('No translation for "$key"');
+      };
+      final localization = CustomLocalization({});
+
+      expect(
+        () => localization.get('missingKey'),
+        throwsA(isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          'No translation for "missingKey"',
+        )),
+      );
+    });
+
+    test('is not called when unset (default behaviour)', () {
+      CustomLocalization.onMissingKey = null;
+      final localization = CustomLocalization({});
+
+      expect(localization.get('missingKey'), '??:missingKey');
+      expect(reported, isEmpty);
+    });
+  });
+
   group('CustomLocalizationDelegate.load', () {
     const deCH = Locale.fromSubtags(languageCode: 'de', countryCode: 'CH');
 

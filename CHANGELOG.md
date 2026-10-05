@@ -1,5 +1,12 @@
 ## 0.2.0
 
+* **Missing-key hook**: new static `CustomLocalization.onMissingKey` callback,
+  called once with the key whenever `get` (and therefore `context.translate`)
+  finds no translation, before the `??:key` fallback is returned. Null by
+  default, so existing apps are unaffected. The callback is not guarded: an
+  exception it throws propagates to the caller, which lets apps `assert` or
+  throw in debug builds. Reachable through the main
+  `flutter_translation_mapper.dart` export.
 * **Regional locale resolution**: a locale with a country code (e.g. `de_CH`)
   now loads `app_de_CH.arb` first and falls back to `app_de.arb` only when the
   regional file is missing. Previously the language-only file was always
