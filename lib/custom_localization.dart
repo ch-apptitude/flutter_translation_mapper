@@ -59,10 +59,10 @@ class CustomLocalization {
 /// the whole point of the language+country fallback fix.
 @visibleForTesting
 List<String> localeFileCandidates(Locale locale) => <String>[
-      if (locale.countryCode != null && locale.countryCode!.isNotEmpty)
-        '${locale.languageCode}_${locale.countryCode}',
-      locale.languageCode,
-    ];
+  if (locale.countryCode != null && locale.countryCode!.isNotEmpty)
+    '${locale.languageCode}_${locale.countryCode}',
+  locale.languageCode,
+];
 
 class CustomLocalizationDelegate
     extends LocalizationsDelegate<CustomLocalization> {
