@@ -1,6 +1,6 @@
 name: flutter_translation_mapper
 description: A Flutter package for simplified localization with custom translations and dynamic variable replacements.
-version: 0.1.0
+version: 0.2.0
 homepage: https://github.com/ch-apptitude/flutter_translation_mapper
 repository: https://github.com/ch-apptitude/flutter_translation_mapper
 issue_tracker: https://github.com/ch-apptitude/flutter_translation_mapper/issues

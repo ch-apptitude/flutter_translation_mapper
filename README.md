@@ -7,6 +7,7 @@ A Flutter package designed to simplify localization by providing a solution for 
 - **Key-Based Translations**: Use translation keys to fetch localized values.
 - **Simplified Access**: Access translations directly using an extension on `BuildContext`.
 - **Custom Localization**: Supports dynamic translations with simple variable replacements.
+- **Regional Locale Resolution**: Locales with a country code (e.g. `de_CH`) load their country-specific file first and fall back to the language-only file.
 - **Fallback Support**: Prevents crashes by providing fallback translations.
 
 > **Note**: Currently, the custom localization only supports simple variables. Plurals, dates, and other advanced formatting are not yet supported.
@@ -21,7 +22,7 @@ Add the package to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  flutter_translation_mapper: ^0.1.0
+  flutter_translation_mapper: ^0.2.0
 ```
 
 Run `flutter pub get` to fetch the package.
@@ -94,6 +95,27 @@ assets:
      - lib/l10n/
 ```
 
+#### Regional Locales (Language + Country)
+
+If a supported locale includes a country code, the package looks for a country-specific file first and falls back to the language-only file. For `Locale('de', 'CH')` it tries, in order:
+
+1. `lib/l10n/app_de_CH.arb`
+2. `lib/l10n/app_de.arb`
+
+A locale without a country code (e.g. `Locale('de')`) only looks for `lib/l10n/app_de.arb`.
+
+This lets you ship a single `app_de_CH.arb` without needing an `app_de.arb` next to it, or serve several regional locales from one shared `app_de.arb`:
+
+```dart
+TranslationMapper.setSupportedLocales([
+  Locale('en'),
+  Locale('de', 'CH'),
+  Locale('fr', 'CH'),
+]);
+```
+
+The first candidate that exists is used. Files are **not merged**: if `app_de_CH.arb` is found, `app_de.arb` is never read for that locale, so a country-specific file must contain every key. If that file is malformed, the delegate does not fall back to the next candidate either: it logs the parse error and returns an empty localization, so every lookup renders as `??:key` and the broken file is visible in QA instead of being masked by the base file. If none of the candidates exist, the delegate logs the files it tried (under the `CustomLocalization` logger name) and likewise returns an empty localization rather than crashing the app.
+
 #### Customizing the File Prefix
 
 By default, the package looks for translation files with the `app_` prefix (e.g., `app_en.arb`, `app_es.arb`). You can customize this prefix to match your project's naming convention:
@@ -115,6 +137,8 @@ void main() {
 With the custom prefix `translations_`, the package will load:
 - `lib/l10n/translations_en.arb`
 - `lib/l10n/translations_es.arb`
+
+Regional files follow the same pattern, e.g. `lib/l10n/translations_de_CH.arb`.
 
 ---
 
@@ -162,7 +186,8 @@ When working with localization in Flutter, it can be cumbersome to manage dynami
 1. Providing a simple way to manage custom translations with variable support.
 2. Adding an extension to make accessing translations easier with `context.translate()`.
 3. Supporting custom localization for dynamic translations.
-4. Providing fallback support to prevent crashes when keys are missing.
+4. Resolving regional locales (`de_CH`, then `de`) so country-specific translation files are picked up when present.
+5. Providing fallback support to prevent crashes when keys or translation files are missing.
 
 ---
 

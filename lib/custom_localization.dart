@@ -37,6 +37,16 @@ class CustomLocalization {
   }
 }
 
+/// Ordered list of `.arb` file-name stems to try for [locale], most specific
+/// first (e.g. `de_CH` before `de`). Exposed for testing — the ordering is
+/// the whole point of the language+country fallback fix.
+@visibleForTesting
+List<String> localeFileCandidates(Locale locale) => <String>[
+      if (locale.countryCode != null && locale.countryCode!.isNotEmpty)
+        '${locale.languageCode}_${locale.countryCode}',
+      locale.languageCode,
+    ];
+
 class CustomLocalizationDelegate
     extends LocalizationsDelegate<CustomLocalization> {
   String filePrefix = 'app_';
@@ -50,30 +60,52 @@ class CustomLocalizationDelegate
 
   @override
   Future<CustomLocalization> load(Locale locale) async {
-    try {
-      String language = locale.languageCode;
-      developer.log(
-        'Loading localization for language: $language',
-        name: 'CustomLocalization',
-      );
+    // Prefer a full language+country file (e.g. "de_CH") when the locale has
+    // a country code, falling back to the language-only file (e.g. "de").
+    // Trying the language-only file unconditionally — as this used to do —
+    // meant a country-specific locale (like de_CH) silently lost every
+    // translation whenever no language-only file was bundled, even though a
+    // perfectly good language+country file existed right next to it.
+    final candidates = localeFileCandidates(locale);
 
-      String json = await rootBundle.loadString("lib/l10n/$filePrefix$language.arb");
+    for (final candidate in candidates) {
+      final path = 'lib/l10n/$filePrefix$candidate.arb';
 
-      Map<String, dynamic> decoded;
+      // A missing candidate is expected (most apps only bundle a
+      // language-only file), so it is logged as a plain message, not an error.
+      final String json;
       try {
-        decoded = jsonDecode(json);
-      } catch (e) {
+        json = await rootBundle.loadString(path);
+      } catch (_) {
         developer.log(
-          'Failed to parse JSON for locale $language',
+          'No localization file at $path, trying next candidate',
           name: 'CustomLocalization',
-          error: e,
         );
-        rethrow;
+        continue;
+      }
+
+      // From here on the file exists, so we commit to it. A malformed file
+      // must NOT fall through to the next candidate: that would silently serve
+      // the wrong translations and hide the broken file. Returning an empty
+      // localization makes every lookup render as "??:key", which is visible
+      // in QA without crashing the app.
+      final Map<String, dynamic> decoded;
+      try {
+        decoded = jsonDecode(json) as Map<String, dynamic>;
+      } catch (e, stackTrace) {
+        developer.log(
+          'Failed to parse $path; returning empty localization',
+          name: 'CustomLocalization',
+          level: _severe,
+          error: e,
+          stackTrace: stackTrace,
+        );
+        return CustomLocalization({});
       }
 
       // Filter out metadata entries (keys starting with @) and ensure string values
-      Map<String, String> entries = {};
-      int skippedEntries = 0;
+      final entries = <String, String>{};
+      var skippedEntries = 0;
 
       decoded.forEach((key, value) {
         if (key.startsWith('@')) {
@@ -93,25 +125,27 @@ class CustomLocalizationDelegate
       });
 
       developer.log(
-        'Loaded ${entries.length} translations for $language${skippedEntries > 0 ? " ($skippedEntries entries skipped)" : ""}',
+        'Loaded ${entries.length} translations from $path${skippedEntries > 0 ? " ($skippedEntries entries skipped)" : ""}',
         name: 'CustomLocalization',
       );
 
       return CustomLocalization(entries);
-    } catch (e, stackTrace) {
-      developer.log(
-        'Failed to load custom localization for locale ${locale.languageCode}',
-        name: 'CustomLocalization',
-        error: e,
-        stackTrace: stackTrace,
-      );
-
-      // Return empty localization as fallback to prevent app crash
-      developer.log(
-        'Returning empty localization as fallback',
-        name: 'CustomLocalization',
-      );
-      return CustomLocalization({});
     }
+
+    // No candidate exists at all — this is the genuinely unexpected case, so
+    // it is the one logged as an error. Return an empty localization rather
+    // than crashing; callers see "??:key" for every lookup.
+    developer.log(
+      'No localization file found for locale $locale '
+      '(tried: ${candidates.map((c) => "lib/l10n/$filePrefix$c.arb").join(", ")}); '
+      'returning empty localization as fallback',
+      name: 'CustomLocalization',
+      level: _severe,
+    );
+    return CustomLocalization({});
   }
 }
+
+/// `package:logging` SEVERE level, so these entries stand out from the plain
+/// informational messages in DevTools and `flutter logs`.
+const int _severe = 1000;
