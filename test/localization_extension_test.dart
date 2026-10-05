@@ -62,21 +62,28 @@ void main() {
       CustomLocalization.onMissingKey = null;
     });
 
-    testWidgets('returns the translation and does not report a hit',
-        (tester) async {
+    testWidgets('returns the translation and does not report a hit', (
+      tester,
+    ) async {
       final context = await pumpWithLocalization(
         tester,
         CustomLocalization({'greeting': 'Hello {name}'}),
       );
 
-      expect(context.translate('greeting', params: {'name': 'Léa'}),
-          'Hello Léa');
+      expect(
+        context.translate('greeting', params: {'name': 'Léa'}),
+        'Hello Léa',
+      );
       expect(reported, isEmpty);
     });
 
-    testWidgets('reports a missing key and returns the "??:key" fallback',
-        (tester) async {
-      final context = await pumpWithLocalization(tester, CustomLocalization({}));
+    testWidgets('reports a missing key and returns the "??:key" fallback', (
+      tester,
+    ) async {
+      final context = await pumpWithLocalization(
+        tester,
+        CustomLocalization({}),
+      );
 
       expect(context.translate('missingKey'), '??:missingKey');
       expect(reported, ['missingKey']);
@@ -86,32 +93,39 @@ void main() {
       CustomLocalization.onMissingKey = (key) {
         throw StateError('No translation for "$key"');
       };
-      final context = await pumpWithLocalization(tester, CustomLocalization({}));
+      final context = await pumpWithLocalization(
+        tester,
+        CustomLocalization({}),
+      );
 
       expect(
         () => context.translate('missingKey'),
-        throwsA(isA<StateError>().having(
-          (e) => e.message,
-          'message',
-          'No translation for "missingKey"',
-        )),
-      );
-    });
-
-    testWidgets('throws a FlutterError when no CustomLocalization is installed',
-        (tester) async {
-      late BuildContext captured;
-      await tester.pumpWidget(
-        Builder(
-          builder: (context) {
-            captured = context;
-            return const SizedBox.shrink();
-          },
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            'No translation for "missingKey"',
+          ),
         ),
       );
-
-      expect(() => captured.translate('greeting'), throwsFlutterError);
-      expect(reported, isEmpty);
     });
+
+    testWidgets(
+      'throws a FlutterError when no CustomLocalization is installed',
+      (tester) async {
+        late BuildContext captured;
+        await tester.pumpWidget(
+          Builder(
+            builder: (context) {
+              captured = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        );
+
+        expect(() => captured.translate('greeting'), throwsFlutterError);
+        expect(reported, isEmpty);
+      },
+    );
   });
 }

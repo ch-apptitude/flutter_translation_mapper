@@ -11,10 +11,9 @@ void main() {
   group('localeFileCandidates', () {
     test('tries the language+country file before the language-only file', () {
       expect(
-        localeFileCandidates(const Locale.fromSubtags(
-          languageCode: 'de',
-          countryCode: 'CH',
-        )),
+        localeFileCandidates(
+          const Locale.fromSubtags(languageCode: 'de', countryCode: 'CH'),
+        ),
         ['de_CH', 'de'],
       );
     });
@@ -44,10 +43,7 @@ void main() {
 
     test('substitutes params into the translation', () {
       final localization = CustomLocalization({'welcome': 'Hi {name}!'});
-      expect(
-        localization.get('welcome', params: {'name': 'Léa'}),
-        'Hi Léa!',
-      );
+      expect(localization.get('welcome', params: {'name': 'Léa'}), 'Hi Léa!');
     });
   });
 
@@ -100,11 +96,13 @@ void main() {
 
       expect(
         () => localization.get('missingKey'),
-        throwsA(isA<StateError>().having(
-          (e) => e.message,
-          'message',
-          'No translation for "missingKey"',
-        )),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            'No translation for "missingKey"',
+          ),
+        ),
       );
     });
 
@@ -133,20 +131,22 @@ void main() {
       rootBundle.clear();
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMessageHandler('flutter/assets', (ByteData? message) async {
-        final key = utf8.decode(
-          message!.buffer.asUint8List(
-            message.offsetInBytes,
-            message.lengthInBytes,
-          ),
-        );
-        requested.add(key);
-        final content = assets[key];
-        if (content == null) {
-          // null tells rootBundle the asset does not exist.
-          return null;
-        }
-        return ByteData.sublistView(Uint8List.fromList(utf8.encode(content)));
-      });
+            final key = utf8.decode(
+              message!.buffer.asUint8List(
+                message.offsetInBytes,
+                message.lengthInBytes,
+              ),
+            );
+            requested.add(key);
+            final content = assets[key];
+            if (content == null) {
+              // null tells rootBundle the asset does not exist.
+              return null;
+            }
+            return ByteData.sublistView(
+              Uint8List.fromList(utf8.encode(content)),
+            );
+          });
     });
 
     tearDown(() {
@@ -164,15 +164,17 @@ void main() {
       expect(requested, ['lib/l10n/app_de_CH.arb']);
     });
 
-    test('falls back to the language-only file when the regional one is missing',
-        () async {
-      assets['lib/l10n/app_de.arb'] = '{"greeting": "Hallo"}';
+    test(
+      'falls back to the language-only file when the regional one is missing',
+      () async {
+        assets['lib/l10n/app_de.arb'] = '{"greeting": "Hallo"}';
 
-      final localization = await CustomLocalizationDelegate().load(deCH);
+        final localization = await CustomLocalizationDelegate().load(deCH);
 
-      expect(localization.get('greeting'), 'Hallo');
-      expect(requested, ['lib/l10n/app_de_CH.arb', 'lib/l10n/app_de.arb']);
-    });
+        expect(localization.get('greeting'), 'Hallo');
+        expect(requested, ['lib/l10n/app_de_CH.arb', 'lib/l10n/app_de.arb']);
+      },
+    );
 
     test('returns an empty localization when no candidate exists', () async {
       final localization = await CustomLocalizationDelegate().load(deCH);
@@ -196,8 +198,9 @@ void main() {
       assets['lib/l10n/app_en.arb'] =
           '{"@@locale": "en", "greeting": "Hello", "@greeting": {}, "count": 3}';
 
-      final localization = await CustomLocalizationDelegate()
-          .load(const Locale.fromSubtags(languageCode: 'en'));
+      final localization = await CustomLocalizationDelegate().load(
+        const Locale.fromSubtags(languageCode: 'en'),
+      );
 
       expect(localization.get('greeting'), 'Hello');
       expect(localization.get('@@locale'), '??:@@locale');
@@ -207,9 +210,9 @@ void main() {
     test('honours a custom file prefix', () async {
       assets['lib/l10n/translations_de_CH.arb'] = '{"greeting": "Grüezi"}';
 
-      final localization = await (CustomLocalizationDelegate()
-            ..filePrefix = 'translations_')
-          .load(deCH);
+      final localization =
+          await (CustomLocalizationDelegate()..filePrefix = 'translations_')
+              .load(deCH);
 
       expect(localization.get('greeting'), 'Grüezi');
       expect(requested, ['lib/l10n/translations_de_CH.arb']);
