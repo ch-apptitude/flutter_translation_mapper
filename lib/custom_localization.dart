@@ -4,8 +4,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_translation_mapper/app_localization_provider.dart';
 
+/// The translations of a single locale, as loaded by [CustomLocalizationDelegate].
+///
+/// Instances are created by the delegate and made available to the widget tree
+/// through Flutter's `Localizations` widget. Retrieve the one for the current
+/// locale with [of], or simply call `context.translate(...)` from
+/// `LocalizationExtension`, which does the lookup for you.
+///
+/// ```dart
+/// final loc = CustomLocalization.of(context)!;
+/// loc.get('greeting', params: {'name': 'Ada'});
+/// ```
 class CustomLocalization {
   final Map<String, String> _entries;
+
+  /// The delegate to add to `MaterialApp.localizationsDelegates`.
+  ///
+  /// A single shared instance, so settings such as
+  /// [CustomLocalizationDelegate.filePrefix] can be changed in `main` before
+  /// `runApp` and apply everywhere:
+  ///
+  /// ```dart
+  /// CustomLocalization.delegate.filePrefix = 'translations_';
+  /// ```
   static final CustomLocalizationDelegate delegate =
       CustomLocalizationDelegate();
 
@@ -25,12 +46,40 @@ class CustomLocalization {
   /// `context.translate`), so an app can deliberately fail fast in debug.
   static void Function(String key)? onMissingKey;
 
+  /// Creates a localization backed by the given key-to-translation map.
+  ///
+  /// Apps normally do not call this; [delegate] builds instances from `.arb`
+  /// files. It is useful in tests to inject fixed translations.
   CustomLocalization(this._entries);
 
+  /// The [CustomLocalization] for the locale of the closest `Localizations`
+  /// ancestor of [context], or null if none is found.
+  ///
+  /// Returns null when [delegate] is not registered in
+  /// `localizationsDelegates`, or when [context] is above the `MaterialApp`.
+  /// Prefer `context.translate(...)` from `LocalizationExtension`, which
+  /// throws a descriptive [FlutterError] in that case instead of returning
+  /// null.
   static CustomLocalization? of(BuildContext context) {
     return Localizations.of<CustomLocalization>(context, CustomLocalization);
   }
 
+  /// Returns the translation for [key], substituting [params] into it.
+  ///
+  /// For every entry in [params], each occurrence of `{entryKey}` in the
+  /// translated string is replaced by `entryValue.toString()`. Placeholders
+  /// with no matching param are left untouched, and params with no matching
+  /// placeholder are ignored. Only this simple substitution is supported:
+  /// plurals, selects and date or number formatting are not interpreted.
+  ///
+  /// ```dart
+  /// // app_en.arb: "greeting": "Hello, {name}!"
+  /// loc.get('greeting', params: {'name': 'Ada'}); // "Hello, Ada!"
+  /// ```
+  ///
+  /// When [key] has no translation, [onMissingKey] is called (if set) and the
+  /// string `"??:key"` is returned so the miss is visible in the UI rather
+  /// than crashing the app.
   String get(String key, {Map<String, dynamic>? params}) {
     String? translation = _entries[key];
 
@@ -64,8 +113,29 @@ List<String> localeFileCandidates(Locale locale) => <String>[
   locale.languageCode,
 ];
 
+/// Loads a [CustomLocalization] from the `.arb` file matching a locale.
+///
+/// Use the shared instance [CustomLocalization.delegate] rather than creating
+/// your own, so that [filePrefix] changes are picked up everywhere.
+///
+/// Files are read from the asset bundle at `lib/l10n/<filePrefix><locale>.arb`
+/// and must therefore be declared under `flutter: assets:` in `pubspec.yaml`.
+/// For a locale with a country code the country-specific file is tried first
+/// and the language-only file second; see [load] for the full rules.
+///
+/// A locale counts as supported only if it is present in
+/// [TranslationMapper.supportedLocales].
 class CustomLocalizationDelegate
     extends LocalizationsDelegate<CustomLocalization> {
+  /// File-name prefix of the translation files, `'app_'` by default.
+  ///
+  /// With the default, `Locale('en')` loads `lib/l10n/app_en.arb`. Set it
+  /// before `runApp` to match another naming convention:
+  ///
+  /// ```dart
+  /// CustomLocalization.delegate.filePrefix = 'translations_';
+  /// // now loads lib/l10n/translations_en.arb
+  /// ```
   String filePrefix = 'app_';
 
   @override
@@ -75,6 +145,25 @@ class CustomLocalizationDelegate
   @override
   bool shouldReload(CustomLocalizationDelegate old) => false;
 
+  /// Loads the translations for [locale] from the asset bundle.
+  ///
+  /// Candidate files are tried in the order given by [localeFileCandidates]:
+  /// `lib/l10n/<filePrefix>de_CH.arb` and then `lib/l10n/<filePrefix>de.arb`
+  /// for `Locale('de', 'CH')`, or only the latter for `Locale('de')`. The
+  /// first file that exists is used; files are never merged, so a
+  /// country-specific file has to contain every key.
+  ///
+  /// Entries whose key starts with `@` (ARB metadata) and entries whose value
+  /// is not a string are skipped. This method never throws:
+  ///
+  ///  * if the chosen file is malformed JSON, the error is logged and an
+  ///    empty localization is returned, so every lookup renders as `??:key`
+  ///    instead of silently falling back to another file;
+  ///  * if no candidate file exists, the attempted paths are logged and an
+  ///    empty localization is returned.
+  ///
+  /// Diagnostics are written with `dart:developer` `log` under the
+  /// `CustomLocalization` logger name.
   @override
   Future<CustomLocalization> load(Locale locale) async {
     // Prefer a full language+country file (e.g. "de_CH") when the locale has

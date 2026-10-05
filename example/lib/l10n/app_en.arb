@@ -1,0 +1,13 @@
+{
+  "@@locale": "en",
+  "appTitle": "Translation Mapper example",
+  "welcome": "Welcome to the example app!",
+  "greeting": "Hello, {name}!",
+  "@greeting": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "itemCount": "You have {count} items in your cart.",
+  "switchLocale": "Switch to French"
+}

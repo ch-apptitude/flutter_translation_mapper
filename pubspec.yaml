@@ -5,6 +5,13 @@ homepage: https://github.com/ch-apptitude/flutter_translation_mapper
 repository: https://github.com/ch-apptitude/flutter_translation_mapper
 issue_tracker: https://github.com/ch-apptitude/flutter_translation_mapper/issues
 
+topics:
+  - localization
+  - i18n
+  - l10n
+  - translation
+  - arb
+
 environment:
   sdk: ^3.8.1
   flutter: ">=1.17.0"

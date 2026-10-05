@@ -15,6 +15,13 @@ A Flutter package designed to simplify localization by providing a solution for 
 
 ---
 
+## Example
+
+A runnable app with the full setup (delegate, supported locales, `.arb`
+assets and `context.translate`) is in the [`example/`](example/) folder.
+
+---
+
 ## Getting Started
 
 ### 1. Add the Package to Your Project
