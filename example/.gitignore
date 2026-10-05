@@ -1,0 +1,14 @@
+# Platform folders are generated with `flutter create .` and not committed.
+/android/
+/ios/
+/linux/
+/macos/
+/web/
+/windows/
+
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+build/
+pubspec.lock

@@ -1,3 +1,12 @@
+## Unreleased
+
+* Added an `example/` app showing the delegate setup, the `.arb` assets and
+  `context.translate` with and without parameters.
+* Documented the whole public API (`TranslationMapper`, `CustomLocalization`,
+  `CustomLocalizationDelegate`, `LocalizationExtension`) and the library
+  entry point.
+* Added pub.dev `topics` to `pubspec.yaml`.
+
 ## 0.2.0
 
 * **Missing-key hook**: new static `CustomLocalization.onMissingKey` callback,
